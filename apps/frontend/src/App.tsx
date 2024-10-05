@@ -24,6 +24,7 @@ function App() {
 
   const [currentData, setCurrentData] = useState<BeaconData>({
     messageId: 0,
+    predicted: false,
     location: {
       latitude: 0,
       longitude: 0,
@@ -47,6 +48,7 @@ function App() {
       latitude: number;
       longitude: number;
       altitude: number;
+      predicted: boolean;
     }[]
   >([]);
 
@@ -66,7 +68,10 @@ function App() {
     }, 1000);
 
     setGyroAcceleration((prev) => [...prev, newData.gyroscopicAcceleration]);
-    setLocation((prev) => [...prev, newData.location]);
+    setLocation((prev) => [
+      ...prev,
+      { ...newData.location, predicted: currentData.predicted },
+    ]);
   }, []);
 
   useEffect(() => {
@@ -154,34 +159,39 @@ function App() {
                 height={300}
                 data={gyroAcceleration.slice(-100)}
                 margin={{
-                  top: 5,
+                  top: 10,
+                  right: 5,
+                  left: 0,
                   bottom: 5,
                 }}
               >
-                <XAxis dataKey="timestamp" />
-                <YAxis />
+                <XAxis dataKey="timestamp" stroke="#FFFFFF" />
+                <YAxis stroke="#FFFFFF" />
                 <Tooltip />
                 <Legend />
                 <Line
-                  dot={false}
                   type="basis"
                   dataKey="rollAccel"
                   stroke="#8884d8"
                   activeDot={{ r: 8 }}
+                  name="Roll"
+                  dot={false}
                 />
                 <Line
-                  dot={false}
                   type="basis"
                   dataKey="pitchAccel"
                   stroke="#82ca9d"
                   activeDot={{ r: 8 }}
+                  name="Pitch"
+                  dot={false}
                 />
                 <Line
-                  dot={false}
                   type="basis"
                   dataKey="yawAccel"
                   stroke="#ffc658"
                   activeDot={{ r: 8 }}
+                  name="Yaw"
+                  dot={false}
                 />
               </LineChart>
             )}
@@ -193,19 +203,26 @@ function App() {
                 <p className="">Not Simulated</p>
               </div>
             ) : (
-              <Canvas camera={{ zoom: 30 }}>
-                <primitive object={new AxesHelper(0.15)} />
-                <ambientLight intensity={0.5} />
-                <directionalLight position={[2, 5, 2]} intensity={5} />
-                <directionalLight position={[-2, 5, -2]} intensity={5} />
-                <directionalLight position={[-2, -5, -2]} intensity={5} />
+              <div className="">
+                <Canvas camera={{ zoom: 30 }} className="h-fit">
+                  <primitive object={new AxesHelper(0.15)} />
+                  <ambientLight intensity={0.5} />
+                  <directionalLight position={[2, 5, 2]} intensity={5} />
+                  <directionalLight position={[-2, 5, -2]} intensity={5} />
+                  <directionalLight position={[-2, -5, -2]} intensity={5} />
 
-                <Model
-                  yaw={currentData.rotation.yaw}
-                  pitch={currentData.rotation.pitch}
-                  roll={currentData.rotation.roll}
-                />
-              </Canvas>
+                  <Model
+                    yaw={currentData.rotation.yaw}
+                    pitch={currentData.rotation.pitch}
+                    roll={currentData.rotation.roll}
+                  />
+                </Canvas>
+                <div className="text-sm -mt-8 flex gap-x-2">
+                  <p>Yaw: {currentData.rotation.yaw.toFixed(2)}</p>
+                  <p>Pitch: {currentData.rotation.pitch.toFixed(2)} </p>
+                  <p>Roll: {currentData.rotation.roll.toFixed(2)}</p>
+                </div>
+              </div>
             )}
           </div>
           <div className=" ">
@@ -232,16 +249,23 @@ function App() {
                   ))
                 }
               </Geographies>
-              {location.map(({ latitude, longitude }) => {
+              {location.map(({ latitude, longitude, predicted }) => {
                 return (
                   <Marker coordinates={[longitude, latitude]} fill="#FFFFFF">
-                    <text textAnchor="middle" fill="#F53">
+                    <text
+                      textAnchor="middle"
+                      fill={predicted ? "#808080" : "#F53"}
+                    >
                       •
                     </text>
                   </Marker>
                 );
               })}
             </ComposableMap>
+            <div className="absolute bottom-10 bg-gray-600">
+              Lat: {currentData.location.latitude.toFixed(2)} Long:{" "}
+              {currentData.location.longitude.toFixed(2)}
+            </div>
           </div>
         </div>
       </div>
