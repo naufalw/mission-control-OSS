@@ -12,6 +12,7 @@
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.1.0",
     "@nanostores/react": "^0.8.0",
+    "@radix-ui/react-slot": "^1.1.0",
     "@react-three/drei": "^9.114.0",
     "@react-three/fiber": "^8.17.9",
     "class-variance-authority": "^0.7.0",

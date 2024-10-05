@@ -16,6 +16,8 @@ import {
 import Model from "./Model";
 
 import WorldMap from "./WorldMap";
+import { Button } from "./components/ui/button";
+import { Search } from "lucide-react";
 
 function App() {
   const [zuluTime, setZuluTime] = useState("");
@@ -119,16 +121,24 @@ function App() {
       <div className="h-[96%] w-full grid grid-cols-[1fr_23rem] ">
         {/* Left side - placeholder for potential content */}
         <div className="bg-black-500 flex items-center justify-center overflow-hidden h-full w-full ">
-          <div className="bg-black bg-opacity-70 items-center transparent absolute top-0 h-20 z-10 w-[calc(100vw-23rem)] flex">
-            <div className="text-lg font-bold h-full bg-[#FFD531] flex items-center px-4">
-              <div className="text-black text-xl">
-                <h1>Mission</h1>
-                <h1>Control</h1>
+          <div className="bg-black bg-opacity-70 items-center transparent absolute top-0 h-20 z-10 w-[calc(100vw-23rem)] flex justify-between">
+            <div className="flex items-center h-full">
+              <div className="text-lg font-bold h-full bg-[#FFD531] flex items-center px-4">
+                <div className="text-black text-xl">
+                  <h1>Mission</h1>
+                  <h1>Control</h1>
+                </div>
+              </div>
+              <div className="ml-8">Mission: Launch 1</div>
+              <div className="ml-8">
+                Altitude: {currentData.location.altitude}
               </div>
             </div>
-            <div className="ml-8">Mission: Launch 1</div>
-            <div className="ml-8">
-              Altitude: {currentData.location.altitude}
+            <div className="mr-6">
+              <Button className="border rounded-none bg-black hover:bg-accent hover:text-accent-foreground">
+                Ask anything
+                <Search className="ml-4" />
+              </Button>
             </div>
           </div>
           <WorldMap
@@ -203,8 +213,8 @@ function App() {
                 <p className="">Not Simulated</p>
               </div>
             ) : (
-              <div className="">
-                <Canvas camera={{ zoom: 30 }} className="h-fit">
+              <div className="h-full">
+                <Canvas camera={{ zoom: 30 }} className="h-full">
                   <primitive object={new AxesHelper(0.15)} />
                   <ambientLight intensity={0.5} />
                   <directionalLight position={[2, 5, 2]} intensity={5} />
@@ -217,7 +227,7 @@ function App() {
                     roll={currentData.rotation.roll}
                   />
                 </Canvas>
-                <div className="text-sm -mt-8 flex gap-x-2">
+                <div className="text-sm -mt-14 flex gap-x-2">
                   <p>Yaw: {currentData.rotation.yaw.toFixed(2)}</p>
                   <p>Pitch: {currentData.rotation.pitch.toFixed(2)} </p>
                   <p>Roll: {currentData.rotation.roll.toFixed(2)}</p>
