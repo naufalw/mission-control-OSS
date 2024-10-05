@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { BeaconData } from "./lib/types";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { Canvas } from "@react-three/fiber";
+import { OpenAI } from "openai";
+import Markdown from "react-markdown";
 
 //@ts-ignore
 import { AxesHelper } from "three";
@@ -30,11 +32,44 @@ import Model from "./Model";
 
 import WorldMap from "./WorldMap";
 import { Button } from "./components/ui/button";
-import { Copy, Search } from "lucide-react";
+import { Copy, Plane, Search, Send } from "lucide-react";
+
+const getFwAzimuth = ({
+  lat1,
+  long1,
+  lat2,
+  long2,
+}: {
+  lat1: number;
+  long1: number;
+  lat2: number;
+  long2: number;
+}) => {
+  // Convert latitude and longitude to radians
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const λ1 = (long1 * Math.PI) / 180;
+  const λ2 = (long2 * Math.PI) / 180;
+
+  const y = Math.sin(λ2 - λ1) * Math.cos(φ2);
+  const x =
+    Math.cos(φ1) * Math.sin(φ2) -
+    Math.sin(φ1) * Math.cos(φ2) * Math.cos(λ2 - λ1);
+
+  const θ = Math.atan2(y, x);
+  const bearing = ((θ * 180) / Math.PI + 360) % 360; // in degrees
+
+  return bearing;
+};
 
 function App() {
   const [changeBg, setChangeBg] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [input, setInput] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [allData, setAllData] = useState<BeaconData[]>([]);
+
+  const [fwAzimuth, setFwAzimuth] = useState(0);
 
   const [currentData, setCurrentData] = useState<BeaconData>({
     messageId: 0,
@@ -74,7 +109,41 @@ function App() {
     }[]
   >([]);
 
+  const openai = new OpenAI({
+    apiKey: import.meta.env.VITE_OPENAI_KEY,
+    dangerouslyAllowBrowser: true,
+  });
+
+  const onSend = async () => {
+    setAnswer("Thinking...");
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an intelligent assistant integrated into a satellite tracking website, designed to help users monitor and understand the real-time beacon data of satellites. Users may inquire about various parameters, including satellite location (latitude, longitude, and altitude), gyroscope acceleration, and other analysis based on the data given. You have access to up-to-date data feeds providing information on the satellites’ trajectories and location of the satellites. You will be answering question only based on the data given below. \n",
+        },
+        {
+          role: "user",
+          content: input + ` \nCurrent data: ${JSON.stringify(allData)}`,
+        },
+      ],
+    });
+    // setInput("Ask anything...");
+    setAnswer(completion.choices[0].message.content || "");
+  };
+
   const updateCurrentData = useCallback((newData: BeaconData) => {
+    setFwAzimuth(
+      getFwAzimuth({
+        lat1: currentData.location.latitude,
+        long1: currentData.location.longitude,
+        lat2: newData.location.latitude,
+        long2: newData.location.longitude,
+      })
+    );
     setCurrentData(newData);
     setChangeBg(true);
     setTimeout(() => {
@@ -100,6 +169,11 @@ function App() {
       const newData: BeaconData = JSON.parse(event.data);
       setIsConnected(true);
       updateCurrentData(newData);
+      setAllData((prev) => {
+        const updatedData = [...prev, newData];
+
+        return updatedData;
+      });
     };
 
     socket.onclose = () => {
@@ -117,7 +191,7 @@ function App() {
       {/* Main content area */}
       <div className="h-[96%] w-full grid grid-cols-[1fr_23rem] ">
         {/* Left side - placeholder for potential content */}
-        <div className="bg-black-500 flex items-center justify-center overflow-hidden h-full w-full ">
+        <div className="bg-black-500 flex items-center justify-center overflow-hidden h-[99.5%] w-full ">
           <div className="bg-black bg-opacity-70 items-center transparent absolute top-0 h-20 z-10 w-[calc(100vw-23rem)] flex justify-between">
             <div className="flex items-center h-full">
               <div className="text-lg font-bold h-full bg-[#FFD531] flex items-center px-4">
@@ -130,6 +204,7 @@ function App() {
               <div className="ml-8">
                 Altitude: {currentData.location.altitude}
               </div>
+              <div className="ml-8">Bearing: {fwAzimuth.toFixed(2)}</div>
             </div>
             <div className="mr-6">
               <Dialog>
@@ -139,47 +214,38 @@ function App() {
                     <Search className="ml-4" />
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Share link</DialogTitle>
-                    <DialogDescription>
-                      Anyone who has this link will be able to view this.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="flex items-center space-x-2">
+                <DialogContent className="sm:max-w-lg bg-black text-white">
+                  <div className="flex items-center min-w-[400px] mt-5">
                     <div className="grid flex-1 gap-2">
-                      <Label htmlFor="link" className="sr-only">
-                        Link
-                      </Label>
                       <Input
                         id="link"
-                        defaultValue="https://ui.shadcn.com/docs/installation"
-                        readOnly
+                        className="bg-black"
+                        placeholder="Ask anything..."
+                        onChange={(e) => setInput(e.target.value)}
+                        value={input}
                       />
-                    </div>
-                    <Button type="submit" size="sm" className="px-3">
-                      <span className="sr-only">Copy</span>
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <DialogFooter className="sm:justify-start">
-                    <DialogClose asChild>
-                      <Button type="button" variant="secondary">
-                        Close
+                      <Button
+                        variant={"secondary"}
+                        className="gap-2 "
+                        onClick={onSend}
+                      >
+                        Send <Send className="ml-2" />
                       </Button>
-                    </DialogClose>
-                  </DialogFooter>
+                    </div>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-full p-2 h-fit max-h-[300px] overflow-y-auto">
+                      <Markdown>{answer}</Markdown>
+                    </div>
+                  </div>
                 </DialogContent>
               </Dialog>
             </div>
           </div>
           <WorldMap
             predicted={currentData.predicted}
-            start_lat={location[0]?.latitude || 0}
-            start_long={location[0]?.longitude || 0}
             lat={currentData.location.latitude}
             long={currentData.location.longitude}
-            altitude={currentData.location.altitude}
             pitch={currentData.rotation.pitch}
             roll={currentData.rotation.roll}
             yaw={currentData.rotation.yaw}
@@ -202,7 +268,7 @@ function App() {
                 data={gyroAcceleration.slice(-100)}
                 margin={{
                   top: 10,
-                  right: 5,
+                  right: 0,
                   left: 0,
                   bottom: 5,
                 }}
@@ -270,7 +336,7 @@ function App() {
           <div className=" ">
             <p className="text-lg">Beacon Location</p>
             <ComposableMap
-              className="h-[22rem] w-[22rem]"
+              className="h-[22rem] w-[22.5rem]"
               projectionConfig={{
                 rotate: [
                   -currentData.location.longitude,
@@ -291,6 +357,20 @@ function App() {
                   ))
                 }
               </Geographies>
+              {!currentData.predicted && (
+                <Marker
+                  coordinates={[
+                    currentData.location.longitude,
+                    currentData.location.latitude,
+                  ]}
+                  fill="#FFFFFF"
+                >
+                  <text textAnchor="middle" fill={"#F53"} fontSize={60}>
+                    •
+                  </text>
+                </Marker>
+              )}
+
               {location.map(({ latitude, longitude, predicted }) => {
                 return (
                   <Marker coordinates={[longitude, latitude]} fill="#FFFFFF">
@@ -329,13 +409,18 @@ function App() {
         </div>
 
         <div className="flex space-x-4">
-          <div className="bg-red-500">
+          <div className="bg-red-500 px-2">
             {currentData.predicted ? "Predicted Data" : ""}
           </div>
           <div className={changeBg ? "bg-sky-500 px-2" : "px-2"}>
             Message ID: {currentData.messageId}
           </div>
-          <div>Time: {currentData.timestamp.slice(0, -4)}</div>
+          <div className="ml-2">
+            {currentData.predicted
+              ? "Time: --:--:--"
+              : `Time: ${currentData.timestamp.slice(0, -4)}`}
+          </div>
+
           {/* <div>{zuluTime}</div> */}
         </div>
       </div>

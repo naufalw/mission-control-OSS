@@ -8,21 +8,17 @@ import { useStore } from "@nanostores/react";
 const WorldMap = ({
   lat,
   long,
-  altitude,
-  start_lat,
-  start_long,
+
   pitch,
   predicted,
   roll,
   yaw,
   locations,
 }: {
-  start_lat: number;
-  start_long: number;
   lat: number;
   long: number;
   predicted: boolean;
-  altitude: number;
+
   pitch: number;
   roll: number;
   yaw: number;
@@ -89,7 +85,7 @@ const WorldMap = ({
         objectAltitude="alt"
         animateIn={false}
         height={1000}
-        width={1200}
+        width={1400}
         objectsData={[
           ...locationsNew,
           {
