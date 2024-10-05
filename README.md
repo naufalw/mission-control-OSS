@@ -48,5 +48,6 @@ pnpm dev
 - @react-three/fiber
 - @react-three/drei
 - lucide-react
+- OpenAI
 
 > For more information about the dependencies, please refer to the `package.json` file.

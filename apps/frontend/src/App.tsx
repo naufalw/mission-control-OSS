@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { Canvas } from "@react-three/fiber";
 import { OpenAI } from "openai";
 import Markdown from "react-markdown";
+import * as SliderPrimitive from "@radix-ui/react-slider";
 
 //@ts-ignore
 import { AxesHelper } from "three";
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 
 import {
   ComposableMap,
@@ -33,6 +35,7 @@ import Model from "./Model";
 import WorldMap from "./WorldMap";
 import { Button } from "./components/ui/button";
 import { Copy, Plane, Search, Send } from "lucide-react";
+import { cn } from "./lib/utils";
 
 const getFwAzimuth = ({
   lat1,
@@ -68,6 +71,9 @@ function App() {
   const [input, setInput] = useState("");
   const [answer, setAnswer] = useState("");
   const [allData, setAllData] = useState<BeaconData[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const [inhibited, setInhibited] = useState(false);
 
   const [fwAzimuth, setFwAzimuth] = useState(0);
 
@@ -135,27 +141,34 @@ function App() {
     setAnswer(completion.choices[0].message.content || "");
   };
 
-  const updateCurrentData = useCallback((newData: BeaconData) => {
-    setFwAzimuth(
-      getFwAzimuth({
-        lat1: currentData.location.latitude,
-        long1: currentData.location.longitude,
-        lat2: newData.location.latitude,
-        long2: newData.location.longitude,
-      })
-    );
-    setCurrentData(newData);
-    setChangeBg(true);
-    setTimeout(() => {
-      setChangeBg(false);
-    }, 1000);
+  const updateCurrentData = useCallback(
+    (newData: BeaconData) => {
+      setFwAzimuth(
+        getFwAzimuth({
+          lat1: currentData.location.latitude,
+          long1: currentData.location.longitude,
+          lat2: newData.location.latitude,
+          long2: newData.location.longitude,
+        })
+      );
 
-    setGyroAcceleration((prev) => [...prev, newData.gyroscopicAcceleration]);
-    setLocation((prev) => [
-      ...prev,
-      { ...newData.location, predicted: currentData.predicted },
-    ]);
-  }, []);
+      if (allData.length == 0 || !inhibited) {
+        setCurrentData(newData);
+      }
+
+      setChangeBg(true);
+      setTimeout(() => {
+        setChangeBg(false);
+      }, 1000);
+
+      setGyroAcceleration((prev) => [...prev, newData.gyroscopicAcceleration]);
+      setLocation((prev) => [
+        ...prev,
+        { ...newData.location, predicted: currentData.predicted },
+      ]);
+    },
+    [inhibited]
+  );
 
   useEffect(() => {
     const socket = new WebSocket("ws://localhost:8080");
@@ -171,9 +184,14 @@ function App() {
       updateCurrentData(newData);
       setAllData((prev) => {
         const updatedData = [...prev, newData];
-
         return updatedData;
       });
+      if (inhibited) {
+        setCurrentIndex(allData.indexOf(currentData));
+      } else {
+        setCurrentIndex(allData.length);
+        console.log(currentIndex);
+      }
     };
 
     socket.onclose = () => {
@@ -184,7 +202,17 @@ function App() {
     return () => {
       socket.close();
     };
-  }, [updateCurrentData]);
+  }, [updateCurrentData, inhibited]);
+
+  const handleSliderChange = useCallback(
+    (value: number[]) => {
+      const newIndex = value[0];
+      setInhibited(newIndex !== allData.length - 1);
+      setCurrentIndex(newIndex);
+      setCurrentData(allData[newIndex]);
+    },
+    [allData]
+  );
 
   return (
     <div className="flex bg-black flex-col h-screen w-screen text-white font-mono">
@@ -192,6 +220,38 @@ function App() {
       <div className="h-[96%] w-full grid grid-cols-[1fr_23rem] ">
         {/* Left side - placeholder for potential content */}
         <div className="bg-black-500 flex items-center justify-center overflow-hidden h-[99.5%] w-full ">
+          <div className="absolute z-10 bottom-20 w-[60%]">
+            {allData.length > 0 ? (
+              <div className="flex items-center gap-x-4">
+                <SliderPrimitive.Root
+                  className={cn(
+                    "relative flex w-full touch-none select-none items-center",
+                    "w-full"
+                  )}
+                  value={[inhibited ? currentIndex : allData.length - 1]}
+                  min={0}
+                  max={allData.length - 1}
+                  onValueChange={handleSliderChange}
+                  step={1}
+                >
+                  <SliderPrimitive.Track className="relative h-2 w-full grow overflow-hidden rounded-full bg-secondary">
+                    <SliderPrimitive.Range className="absolute h-full bg-yellow-500" />
+                  </SliderPrimitive.Track>
+                  <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border-2 border-primary bg-background ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" />
+                </SliderPrimitive.Root>
+                <Button
+                  className="bg-[#FFD531] hover:bg-yellow-500 text-black font-bold"
+                  onClick={() => {
+                    setInhibited(false);
+                    setCurrentData(allData[allData.length - 1]);
+                    setCurrentIndex(allData.length - 1);
+                  }}
+                >
+                  Live
+                </Button>
+              </div>
+            ) : null}
+          </div>
           <div className="bg-black bg-opacity-70 items-center transparent absolute top-0 h-20 z-10 w-[calc(100vw-23rem)] flex justify-between">
             <div className="flex items-center h-full">
               <div className="text-lg font-bold h-full bg-[#FFD531] flex items-center px-4">
@@ -265,7 +325,11 @@ function App() {
               <LineChart
                 width={350}
                 height={300}
-                data={gyroAcceleration.slice(-100)}
+                data={
+                  inhibited
+                    ? gyroAcceleration.slice(0, currentIndex).slice(-100)
+                    : gyroAcceleration.slice(-100)
+                }
                 margin={{
                   top: 10,
                   right: 0,
@@ -409,7 +473,7 @@ function App() {
         </div>
 
         <div className="flex space-x-4">
-          <div className="bg-red-500 px-2">
+          <div className={currentData.predicted ? "bg-red-500 px-2" : ""}>
             {currentData.predicted ? "Predicted Data" : ""}
           </div>
           <div className={changeBg ? "bg-sky-500 px-2" : "px-2"}>
