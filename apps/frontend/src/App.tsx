@@ -7,6 +7,19 @@ import { Canvas } from "@react-three/fiber";
 import { AxesHelper } from "three";
 
 import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+import {
   ComposableMap,
   Geographies,
   Geography,
@@ -17,10 +30,9 @@ import Model from "./Model";
 
 import WorldMap from "./WorldMap";
 import { Button } from "./components/ui/button";
-import { Search } from "lucide-react";
+import { Copy, Search } from "lucide-react";
 
 function App() {
-  const [zuluTime, setZuluTime] = useState("");
   const [changeBg, setChangeBg] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
 
@@ -100,21 +112,6 @@ function App() {
     };
   }, [updateCurrentData]);
 
-  useEffect(() => {
-    const updateZuluTime = () => {
-      const now = new Date();
-      const hours = String(now.getUTCHours()).padStart(2, "0");
-      const minutes = String(now.getUTCMinutes()).padStart(2, "0");
-      const seconds = String(now.getUTCSeconds()).padStart(2, "0");
-      setZuluTime(`${hours}:${minutes}:${seconds}Z`);
-    };
-
-    updateZuluTime(); // Initial call
-    const intervalId = setInterval(updateZuluTime, 1000);
-
-    return () => clearInterval(intervalId); // Cleanup on unmount
-  }, []);
-
   return (
     <div className="flex bg-black flex-col h-screen w-screen text-white font-mono">
       {/* Main content area */}
@@ -135,10 +132,45 @@ function App() {
               </div>
             </div>
             <div className="mr-6">
-              <Button className="border rounded-none bg-black hover:bg-accent hover:text-accent-foreground">
-                Ask anything
-                <Search className="ml-4" />
-              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button className="border rounded-none bg-black hover:bg-accent hover:text-accent-foreground">
+                    Ask anything
+                    <Search className="ml-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Share link</DialogTitle>
+                    <DialogDescription>
+                      Anyone who has this link will be able to view this.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="flex items-center space-x-2">
+                    <div className="grid flex-1 gap-2">
+                      <Label htmlFor="link" className="sr-only">
+                        Link
+                      </Label>
+                      <Input
+                        id="link"
+                        defaultValue="https://ui.shadcn.com/docs/installation"
+                        readOnly
+                      />
+                    </div>
+                    <Button type="submit" size="sm" className="px-3">
+                      <span className="sr-only">Copy</span>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <DialogFooter className="sm:justify-start">
+                    <DialogClose asChild>
+                      <Button type="button" variant="secondary">
+                        Close
+                      </Button>
+                    </DialogClose>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
           <WorldMap
